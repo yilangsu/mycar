@@ -19,6 +19,34 @@ import cv2
 import numpy as np
 
 
+def row_edges(mask, row):
+    """Same left/right edge detection logic as LineFollower._row_edges."""
+    w = mask.shape[1]
+    cols = np.where(mask[row] > 0)[0]
+    if len(cols) == 0:
+        return None, None
+    center = w / 2.0
+    left_cols = cols[cols < center]
+    right_cols = cols[cols >= center]
+    left = float(left_cols.max()) if len(left_cols) else None
+    right = float(right_cols.min()) if len(right_cols) else None
+    return left, right
+
+
+def report_row(name, mask, y, w):
+    left, right = row_edges(mask, y)
+    if left is not None and right is not None:
+        width_px = right - left
+        print(f"{name} row (y={y}): left={left:.0f} right={right:.0f} "
+              f"width_px={width_px:.0f} width_frac={width_px / w:.3f}")
+    elif left is not None:
+        print(f"{name} row (y={y}): only LEFT edge visible at x={left:.0f}")
+    elif right is not None:
+        print(f"{name} row (y={y}): only RIGHT edge visible at x={right:.0f}")
+    else:
+        print(f"{name} row (y={y}): no orange detected")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("image", help="path to a sample frame, e.g. from mycar/data/images/")
@@ -52,7 +80,9 @@ def main():
     side_by_side = np.hstack([annotated, mask_bgr])
     cv2.imwrite(args.out, side_by_side)
     print(f"lower={args.lower} upper={args.upper}")
-    print(f"near row (green) at y={near_y}, far row (yellow) at y={far_y}, image height={h}")
+    print(f"near row (green) at y={near_y}, far row (yellow) at y={far_y}, image height={h}, image width={w}")
+    report_row("near", mask, near_y, w)
+    report_row("far", mask, far_y, w)
     print(f"wrote {args.out} (left: original, right: mask) - open it in VSCode")
     print(f"orange pixels detected: {int((mask > 0).sum())}")
 

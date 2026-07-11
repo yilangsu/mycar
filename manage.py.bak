@@ -413,10 +413,6 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None,
             inputs = ['cam/image_array_trans'] + inputs[1:]
 
         V.add(kl, inputs=inputs, outputs=outputs, run_condition='run_pilot')
-    else:
-        from parts.line_follower import LineFollower
-        cv_pilot = LineFollower()
-        V.add(cv_pilot, inputs=['cam/image_array'], outputs=['pilot/angle', 'pilot/throttle'], run_condition='run_pilot')
 
     #
     # stop at a stop sign

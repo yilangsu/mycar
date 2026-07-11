@@ -12,9 +12,10 @@ class LineFollower:
     def __init__(self,
                  hsv_lower=(5, 100, 100),
                  hsv_upper=(20, 255, 255),
-                 near_row_frac=0.85,
+                 near_row_frac=0.75,
                  far_row_frac=0.55,
-                 lane_width_frac=0.6,
+                 near_lane_width_frac=0.604,
+                 far_lane_width_frac=0.304,
                  steering_kp=1.8,
                  steering_kd=0.6,
                  max_throttle=1.0,
@@ -25,7 +26,8 @@ class LineFollower:
         self.hsv_upper = np.array(hsv_upper, dtype=np.uint8)
         self.near_row_frac = near_row_frac
         self.far_row_frac = far_row_frac
-        self.lane_width_frac = lane_width_frac
+        self.near_lane_width_frac = near_lane_width_frac
+        self.far_lane_width_frac = far_lane_width_frac
         self.kp = steering_kp
         self.kd = steering_kd
         self.max_throttle = max_throttle
@@ -49,13 +51,13 @@ class LineFollower:
         right = float(right_cols.min()) if len(right_cols) else None
         return left, right
 
-    def _lane_center(self, mask, row_frac, img_w):
+    def _lane_center(self, mask, row_frac, lane_width_frac, img_w):
         row = int(mask.shape[0] * row_frac)
         left, right = self._row_edges(mask, row)
-        lane_w = img_w * self.lane_width_frac
+        lane_w = img_w * lane_width_frac
         if left is not None and right is not None:
             return (left + right) / 2.0
-        # only one edge visible (sharp turn): offset from it by half the known lane width
+        # only one edge visible (turn): offset from it by half the lane width at this row's depth
         if left is not None:
             return left + lane_w / 2.0
         if right is not None:
@@ -70,8 +72,8 @@ class LineFollower:
         hsv = cv2.cvtColor(img_arr, cv2.COLOR_RGB2HSV)
         mask = cv2.inRange(hsv, self.hsv_lower, self.hsv_upper)
 
-        near_center = self._lane_center(mask, self.near_row_frac, w)
-        far_center = self._lane_center(mask, self.far_row_frac, w)
+        near_center = self._lane_center(mask, self.near_row_frac, self.near_lane_width_frac, w)
+        far_center = self._lane_center(mask, self.far_row_frac, self.far_lane_width_frac, w)
 
         if near_center is None and far_center is None:
             self.lost_frames += 1
