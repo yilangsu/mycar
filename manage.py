@@ -273,6 +273,21 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None,
     if cfg.USE_FPV:
         V.add(WebFpv(), inputs=['cam/image_array'], threaded=True)
 
+    # --- Live orange-line CV debug view (auto-added) ---
+    # Streams the camera with detected orange pixels + lane center drawn on it
+    # to http://<car-ip>:8891/ so you can watch the vision work over SSH. Runs
+    # in every mode, so you can drive manually and still see the detection.
+    try:
+        from parts.line_follower import LineFollower as _DbgLineFollower
+        from donkeycar.parts.transform import Lambda as _DbgLambda
+        _dbg_follower = _DbgLineFollower()
+        V.add(_DbgLambda(_dbg_follower.debug_overlay),
+              inputs=['cam/image_array'], outputs=['cam/orange_debug'])
+        V.add(WebFpv(port=8891), inputs=['cam/orange_debug'], threaded=True)
+        print(">>> Orange-line debug view at http://<car-ip>:8891/")
+    except Exception as _dbg_err:
+        print(">>> Orange-line debug view could not start:", _dbg_err)
+
     def load_model(kl, model_path):
         start = time.time()
         print('loading model', model_path)

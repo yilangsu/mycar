@@ -19,6 +19,20 @@ import cv2
 import numpy as np
 
 
+def normalize_brightness(hsv, roi_top_frac):
+    """Same brightness normalization as LineFollower._normalize_brightness."""
+    h = hsv.shape[0]
+    roi_top = int(h * roi_top_frac)
+    roi_v = hsv[roi_top:, :, 2]
+    lo, hi = np.percentile(roi_v, [2, 98])
+    if hi - lo < 10:
+        return hsv
+    v = hsv[:, :, 2].astype(np.float32)
+    v = np.clip((v - lo) * (255.0 / (hi - lo)), 0, 255).astype(np.uint8)
+    hsv[:, :, 2] = v
+    return hsv
+
+
 def row_edges(mask, row):
     """Same left/right edge detection logic as LineFollower._row_edges."""
     w = mask.shape[1]
@@ -50,12 +64,14 @@ def report_row(name, mask, y, w):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("image", help="path to a sample frame, e.g. from mycar/data/images/")
-    ap.add_argument("--lower", type=int, nargs=3, default=[5, 100, 100], metavar=("H", "S", "V"))
+    ap.add_argument("--lower", type=int, nargs=3, default=[5, 60, 60], metavar=("H", "S", "V"))
     ap.add_argument("--upper", type=int, nargs=3, default=[20, 255, 255], metavar=("H", "S", "V"))
-    ap.add_argument("--near-row-frac", type=float, default=0.85,
+    ap.add_argument("--near-row-frac", type=float, default=0.75,
                      help="fraction down the image of the near scan row (should match LineFollower)")
     ap.add_argument("--far-row-frac", type=float, default=0.55,
                      help="fraction down the image of the far scan row (should match LineFollower)")
+    ap.add_argument("--brightness-roi-frac", type=float, default=0.45,
+                     help="fraction down the image where floor brightness normalization starts")
     ap.add_argument("--out", default="hsv_check.jpg")
     args = ap.parse_args()
 
@@ -66,7 +82,9 @@ def main():
     h, w = img_bgr.shape[:2]
 
     hsv = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2HSV)
+    hsv = normalize_brightness(hsv, args.brightness_roi_frac)
     mask = cv2.inRange(hsv, np.array(args.lower), np.array(args.upper))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
 
     annotated = img_bgr.copy()
